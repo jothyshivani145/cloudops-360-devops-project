@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: tickets
+      POSTGRES_USER: cloudops
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localdev_only_change_me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cloudops -d tickets"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://cloudops:${DB_PASSWORD:-localdev_only_change_me}@db:5432/tickets
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
