@@ -89,3 +89,63 @@ jobs:
 
       - name: Scan Git history for secrets
         run: gitleaks git --redact --exit-code 1 .
+
+  integration-test:
+    name: Docker Compose integration test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DB_PASSWORD: ci_test_password_only
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Start Flask and PostgreSQL
+        run: docker compose -p cloudops360ci up -d --build --wait --wait-timeout 120
+
+      - name: Verify Flask health and database
+        run: |
+          python3 - <<'CHECK'
+          import json
+          import time
+          import urllib.request
+
+          url = "http://127.0.0.1:5000/health"
+          for attempt in range(30):
+              try:
+                  with urllib.request.urlopen(url, timeout=3) as response:
+                      data = json.load(response)
+                      assert response.status == 200
+                      assert data["status"] == "healthy"
+                      assert data["database"] == "connected"
+                  print("PASS: Flask and PostgreSQL are healthy")
+                  break
+              except Exception as exc:
+                  if attempt == 29:
+                      raise
+                  print("Waiting for application:", exc)
+                  time.sleep(2)
+          CHECK
+
+      - name: Verify ticket API
+        run: |
+          python3 - <<'CHECK'
+          import json
+          import urllib.request
+
+          url = "http://127.0.0.1:5000/api/tickets"
+          with urllib.request.urlopen(url, timeout=10) as response:
+              data = json.load(response)
+              assert response.status == 200
+              assert isinstance(data, list)
+          print("PASS: Ticket API returned a JSON list")
+          CHECK
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose -p cloudops360ci logs --tail=100 --no-color
+
+      - name: Clean up test containers
+        if: always()
+        run: docker compose -p cloudops360ci down --remove-orphans
