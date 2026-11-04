@@ -36,6 +36,12 @@ jobs:
       - name: Run Python tests
         run: python -m pytest -v
 
+      - name: Audit Python dependencies
+        run: |
+          python -m pip install pip-audit
+          python -m pip_audit -r requirements.txt
+   
+
   bash-check:
     name: Bash validation
     runs-on: ubuntu-latest
