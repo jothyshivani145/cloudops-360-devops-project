@@ -9,3 +9,12 @@ __pycache__/
 *.pyc
 *.db
 instance/
+*:Zone.Identifier
+
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+*.tfplan
+terraform/local/cloudops-config.txt
