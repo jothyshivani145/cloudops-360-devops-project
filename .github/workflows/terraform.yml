@@ -19,9 +19,16 @@ jobs:
     name: Terraform format and validation
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        terraform_dir:
+          - terraform/local
+          - terraform/aws
+
     defaults:
       run:
-        working-directory: terraform/local
+        working-directory: ${{ matrix.terraform_dir }}
 
     steps:
       - name: Checkout repository
