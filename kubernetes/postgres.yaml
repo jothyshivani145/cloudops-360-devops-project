@@ -42,7 +42,14 @@ spec:
                 secretKeyRef:
                   name: cloudops-db-secret
                   key: POSTGRES_PASSWORD
-          volumeMounts:
+          resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
               subPath: pgdata
