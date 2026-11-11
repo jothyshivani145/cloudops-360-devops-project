@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudops-flask
+  namespace: cloudops-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudops-flask
+  template:
+    metadata:
+      labels:
+        app: cloudops-flask
+    spec:
+      containers:
+        - name: flask
+          image: cloudops-360-web:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: cloudops-flask-secret
+                  key: DATABASE_URL
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudops-flask
+  namespace: cloudops-app
+spec:
+  selector:
+    app: cloudops-flask
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP

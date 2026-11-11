@@ -1,0 +1,55 @@
+name: CloudOps 360 Kubernetes Validation
+
+on:
+  push:
+    paths:
+      - "kubernetes/**"
+      - ".github/workflows/kubernetes.yml"
+  pull_request:
+    paths:
+      - "kubernetes/**"
+      - ".github/workflows/kubernetes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-kubernetes:
+    name: Validate Kubernetes manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create temporary Kind cluster
+        uses: helm/kind-action@v1
+
+      - name: Verify Kubernetes cluster
+        run: kubectl get nodes
+
+      - name: Validate PostgreSQL manifests
+        run: |
+          kubectl apply --dry-run=server \
+            -f kubernetes/postgres.yaml
+
+      - name: Validate Flask manifests
+        run: |
+          kubectl apply --dry-run=server \
+            -f kubernetes/flask.yaml
+
+      - name: Check Kubernetes YAML formatting
+        run: |
+          python3 -m pip install --user pyyaml
+          python3 - <<'PY'
+          import yaml
+          from pathlib import Path
+
+          for path in sorted(Path("kubernetes").glob("*.yaml")):
+              with path.open() as f:
+                  documents = list(yaml.safe_load_all(f))
+              assert all(isinstance(doc, dict) for doc in documents)
+              print(f"VALID: {path} ({len(documents)} resources)")
+          PY
