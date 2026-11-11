@@ -30,6 +30,9 @@ jobs:
       - name: Verify Kubernetes cluster
         run: kubectl get nodes
 
+      - name: Create application namespace
+        run: kubectl create namespace cloudops-app
+
       - name: Validate PostgreSQL manifests
         run: |
           kubectl apply --dry-run=server \
