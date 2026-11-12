@@ -5,7 +5,7 @@ metadata:
   namespace: cloudops-app
 spec:
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi
@@ -17,54 +17,66 @@ metadata:
   namespace: cloudops-app
 spec:
   replicas: 1
-  strategy:
-    type: Recreate
   selector:
     matchLabels:
       app: cloudops-postgres
+  strategy:
+    type: Recreate
   template:
     metadata:
       labels:
         app: cloudops-postgres
     spec:
       containers:
-        - name: postgres
-          image: postgres:17-alpine
-          ports:
-            - containerPort: 5432
-          env:
-            - name: POSTGRES_DB
-              value: tickets
-            - name: POSTGRES_USER
-              value: cloudops
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: cloudops-db-secret
-                  key: POSTGRES_PASSWORD
-          resources:
-          requests:
-            cpu: 50m
-            memory: 128Mi
+      - env:
+        - name: POSTGRES_DB
+          value: tickets
+        - name: POSTGRES_USER
+          value: cloudops
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: POSTGRES_PASSWORD
+              name: cloudops-db-secret
+        image: postgres:17-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - pg_isready -U cloudops -d tickets
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
           limits:
             cpu: 500m
             memory: 512Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
         volumeMounts:
-            - name: postgres-storage
-              mountPath: /var/lib/postgresql/data
-              subPath: pgdata
-          readinessProbe:
-            exec:
-              command:
-                - sh
-                - -c
-                - pg_isready -U cloudops -d tickets
-            initialDelaySeconds: 5
-            periodSeconds: 5
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-storage
+          subPath: pgdata
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
       volumes:
-        - name: postgres-storage
-          persistentVolumeClaim:
-            claimName: postgres-data
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: postgres-data
 ---
 apiVersion: v1
 kind: Service
@@ -72,9 +84,11 @@ metadata:
   name: postgres
   namespace: cloudops-app
 spec:
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
   selector:
     app: cloudops-postgres
-  ports:
-    - port: 5432
-      targetPort: 5432
+  sessionAffinity: None
   type: ClusterIP
